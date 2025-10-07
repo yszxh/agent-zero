@@ -991,13 +991,40 @@ def convert_out(settings: Settings) -> SettingsOutput:
         }
     )
 
+    stt_language_value = str(settings["stt_language"]).strip()
+    stt_language_value_lower = stt_language_value.lower()
+    if stt_language_value_lower in ("", "auto"):
+        stt_language_mode = "auto"
+    elif stt_language_value_lower == "en":
+        stt_language_mode = "en"
+    elif stt_language_value_lower.startswith("zh"):
+        stt_language_mode = "zh"
+    else:
+        stt_language_mode = "custom"
+
+    stt_fields.append(
+        {
+            "id": "stt_language_mode",
+            "title": "Speech-to-text language",
+            "description": "Choose the transcription language. Select Custom to provide your own language code.",
+            "type": "select",
+            "value": stt_language_mode,
+            "options": [
+                {"value": "auto", "label": "Auto-detect"},
+                {"value": "en", "label": "English"},
+                {"value": "zh", "label": "中文 (Chinese)"},
+                {"value": "custom", "label": "Custom"},
+            ],
+        }
+    )
+
     stt_fields.append(
         {
             "id": "stt_language",
             "title": "Speech-to-text language code",
-            "description": "Language code (e.g. en, fr, it)",
+            "description": "Current language code. Enter a value when using the Custom option above (e.g. en, fr, zh-Hans).",
             "type": "text",
-            "value": settings["stt_language"],
+            "value": stt_language_value,
         }
     )
 
@@ -1290,6 +1317,8 @@ def _get_api_key_field(settings: Settings, provider: str, title: str) -> Setting
 
 def convert_in(settings: dict) -> Settings:
     current = get_settings()
+    stt_language_mode: str | None = None
+    stt_language_value: str | None = None
     for section in settings["sections"]:
         if "fields" in section:
             for field in section["fields"]:
@@ -1303,10 +1332,32 @@ def convert_in(settings: dict) -> Settings:
                     # Special handling for browser_http_headers
                     if field["id"] == "browser_http_headers" or field["id"].endswith("_kwargs"):
                         current[field["id"]] = _env_to_dict(field["value"])
+                    elif field["id"] == "stt_language_mode":
+                        stt_language_mode = str(field["value"])
+                        continue
+                    elif field["id"] == "stt_language":
+                        stt_language_value = str(field["value"])
+                        continue
                     elif field["id"].startswith("api_key_"):
                         current["api_keys"][field["id"]] = field["value"]
                     else:
                         current[field["id"]] = field["value"]
+
+    selected_mode = (stt_language_mode or "").strip().lower()
+    custom_value_raw = (stt_language_value or "").strip()
+    custom_value = custom_value_raw.lower() if custom_value_raw else ""
+
+    if selected_mode:
+        if selected_mode == "custom":
+            if custom_value:
+                current["stt_language"] = custom_value
+        elif selected_mode == "auto":
+            current["stt_language"] = "auto"
+        else:
+            current["stt_language"] = selected_mode
+    elif stt_language_value is not None:
+        # When only the raw language value is provided (e.g. legacy clients)
+        current["stt_language"] = custom_value
     return current
 
 def get_settings() -> Settings:
