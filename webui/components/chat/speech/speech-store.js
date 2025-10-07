@@ -871,7 +871,10 @@ class MicrophoneInput {
     const base64 = await this.convertBlobToBase64Wav(audioBlob);
 
     try {
-      const result = await sendJsonData("/transcribe", { audio: base64 });
+      const result = await sendJsonData("/transcribe", {
+        audio: base64,
+        language: store.stt_language,
+      });
       const text = this.filterResult(result.text || "");
 
       if (text) {

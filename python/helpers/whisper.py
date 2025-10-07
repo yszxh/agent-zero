@@ -69,12 +69,12 @@ async def is_downloaded():
 def _is_downloaded():
     return _model is not None
 
-async def transcribe(model_name:str, audio_bytes_b64: str):
-    # return await runtime.call_development_function(_transcribe, model_name, audio_bytes_b64)
-    return await _transcribe(model_name, audio_bytes_b64)
+async def transcribe(model_name:str, audio_bytes_b64: str, language: str | None = None):
+    # return await runtime.call_development_function(_transcribe, model_name, audio_bytes_b64, language)
+    return await _transcribe(model_name, audio_bytes_b64, language)
 
 
-async def _transcribe(model_name:str, audio_bytes_b64: str):
+async def _transcribe(model_name:str, audio_bytes_b64: str, language: str | None = None):
     await _preload(model_name)
     
     # Decode audio bytes if encoded as a base64 string
@@ -87,7 +87,12 @@ async def _transcribe(model_name:str, audio_bytes_b64: str):
         temp_path = audio_file.name
     try:
         # Transcribe the audio file
-        result = _model.transcribe(temp_path, fp16=False) # type: ignore
+        transcription_kwargs = {"fp16": False}
+        language_normalized = (language or "").strip().lower()
+        if language_normalized and language_normalized not in {"auto", "default"}:
+            transcription_kwargs["language"] = language_normalized
+
+        result = _model.transcribe(temp_path, **transcription_kwargs) # type: ignore
         return result
     finally:
         try:
